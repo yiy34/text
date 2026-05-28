@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冷笑话生成器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow-x: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+      radial-gradient(circle at 20% 80%, rgba(255,255,255,0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(255,255,255,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.04) 0%, transparent 40%);
+    pointer-events: none;
+  }
+  .container {
+    text-align: center;
+    padding: 20px;
+    max-width: 960px;
+    width: 100%;
+  }
+  h1 {
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  /* toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 8px 20px;
+    font-size: 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .tab-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+  .tab-btn:hover { background: rgba(255,255,255,0.25); }
+  .tab-btn.active {
+    background: #fff;
+    color: #667eea;
+    border-color: #fff;
+    font-weight: 600;
+  }
+
+  /* joke cards */
+  .card {
+    display: flex;
+    gap: 16px;
+    max-width: 900px;
+    margin: 0 auto 28px;
+  }
+  .joke-card {
+    flex: 1;
+    background: rgba(255,255,255,0.95);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    padding: 28px 24px;
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* 允许 flex 子元素在文本溢出时正确截断 */
+  }
+  .joke-card .joke-index {
+    display: block;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    align-self: flex-start;
+    margin-bottom: 14px;
+  }
+  .joke-card .joke-text {
+    flex: 1;
+    font-size: 15px;
+    color: #444;
+    line-height: 1.8;
+    text-align: left;
+    margin-bottom: 16px;
+  }
+  .joke-card .actions {
+    display: flex;
+    gap: 8px;
+    align-self: flex-end;
+    margin-top: auto;
+  }
+  .icon-btn {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+  }
+  .icon-btn:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+  }
+  .icon-btn:hover { border-color: #667eea; color: #667eea; }
+  .icon-btn.copied { border-color: #52c41a; color: #52c41a; background: #f6ffed; }
+
+  .joke-card .icon-btn {
+    background: none;
+    color: #999;
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+  .joke-card .fav-btn { font-size: 14px; padding: 4px 10px; }
+  .joke-card .fav-btn.faved { border-color: #f5222d; color: #f5222d; background: #fff1f0; }
+
+  .btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    padding: 12px 36px;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+  }
+  .btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.5); }
+  .btn:active { transform: translateY(0); }
+
+  /* favorites panel */
+  .fav-panel {
+    display: none;
+    max-width: 900px;
+    margin: 0 auto 28px;
+  }
+  .fav-list {
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .fav-item {
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+  .fav-item .fav-num {
+    color: #999;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 20px;
+  }
+  .fav-item .fav-text {
+    flex: 1;
+    font-size: 15px;
+    color: #444;
+    line-height: 1.7;
+  }
+  .fav-item .icon-btn {
+    font-size: 12px;
+    padding: 4px 14px;
+    background: #fff;
+    color: #666;
+  }
+  .fav-item .del-btn {
+    color: #f5222d;
+    border-color: #f5222d;
+  }
+  .fav-item .del-btn:hover {
+    color: #fff;
+    background: #f5222d;
+    border-color: #f5222d;
+  }
+  .fav-empty {
+    color: rgba(255,255,255,0.6);
+    padding: 40px;
+    font-size: 15px;
+  }
+
+  #debug {
+    color: rgba(255,255,255,0.6);
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+
+  @media (max-width: 640px) {
+    .card { flex-direction: column; max-width: 400px; }
+  }
+
+  .bubble {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.12;
+  }
+  .b1 { width: 200px; height: 200px; background: #fff; top: 10%; left: 5%; animation: float 8s ease-in-out infinite; }
+  .b2 { width: 120px; height: 120px; background: #fff; top: 60%; right: 8%; animation: float 6s ease-in-out 1s infinite; }
+  .b3 { width: 80px; height: 80px; background: #fff; bottom: 15%; left: 15%; animation: float 7s ease-in-out 2s infinite; }
+  .b4 { width: 150px; height: 150px; background: #fff; top: 20%; right: 20%; animation: float 9s ease-in-out 0.5s infinite; }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-30px) scale(1.05); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .b1, .b2, .b3, .b4 { animation: none; }
+    .btn { transition: none; }
+    .btn:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="bubble b1" aria-hidden="true"></div>
+  <div class="bubble b2" aria-hidden="true"></div>
+  <div class="bubble b3" aria-hidden="true"></div>
+  <div class="bubble b4" aria-hidden="true"></div>
+  <h1>🥶 冷笑话生成器</h1>
+  <p class="subtitle">每次三条，专治各种不冷</p>
+
+  <div class="toolbar">
+    <button class="tab-btn active" id="tabRandom">随机</button>
+    <button class="tab-btn" id="tabFav">我的收藏 (<span id="favCount">0</span>)</button>
+  </div>
+
+  <div class="card" id="jokeCard" aria-live="polite" aria-label="冷笑话列表"></div>
+  <div class="fav-panel" id="favPanel">
+    <div class="fav-list" id="favList"></div>
+  </div>
+
+  <div id="debug"></div>
+  <button class="btn" id="mainBtn">再来三个</button>
+</div>
+
+<script>
+const pool = [
+  "为什么程序员不喜欢晒太阳？因为他们在阴影里写代码。",
+  "小明在河边走，突然说：\"我觉得我好渴。\"河说：\"那你倒是喝啊。\"小明说：\"可是你还没烧开。\"",
+  "面试官问：\"你有什么特长？\"我：\"我的反射弧特别长。\"面试官：\"什么意思？\"我：\"等我反应过来再告诉你。\"",
+  "两根香蕉走在路上，前面那根说：\"好热啊。\"然后它就脱了衣服。后面那根摔倒了。",
+  "为什么数学书总是很忧郁？因为它有太多未解的问题。",
+  "有一天，0 和 8 在街上碰面，0不屑地对 8 说：\"胖就胖呗，还系什么腰带。\"",
+  "我问老师：\"什么叫责任心？\"老师说：\"就是把别人的事当成自己的事。\"我说：\"那我把你的钱当成我的钱，算不算有责任心？\"",
+  "许仙对白娘子说：\"娘子，你是不是又胖了？\"白娘子说：\"你瞎说什么，我是蛇，我明明在蜕皮。\"",
+  "冰箱和冰淇淋吵架，冰箱说：\"你再不听话我就断电。\"冰淇淋说：\"你敢！你试试，我让你变成衣柜。\"",
+  "一个包子走在路上饿了，于是它把自己吃了。",
+  "为什么海是蓝色的？因为鱼在里面游来游去，吐泡泡的声音是\"blue blue blue\"。",
+  "刘备对张飞说：\"飞，你去看看前面是什么地方。\"张飞回来报告：\"报告大哥，前面是下坡路。\"刘备说：\"你怎么知道？\"张飞说：\"因为我刚滚下去。\"",
+  "小明问妈妈：\"妈妈，为什么每个人都有名字？\"妈妈说：\"因为方便别人叫啊。\"小明说：\"那为什么我叫小明？\"妈妈说：\"因为你小时候特别明白。\"小明说：\"那我现在不明白了吗？\"妈妈沉默了一会说：\"嗯。\"",
+  "Wi-Fi 信号对手机说：\"我感觉你离我越来越远了。\"手机说：\"我就在你旁边啊。\"Wi-Fi 说：\"那为什么你只有一格信号？\"手机说：\"因为我是双卡双待，我刚才在看另一张卡的信号。\"",
+  "一个苹果和一个梨子同时掉进水里，梨子问：\"兄弟，你怎么沉下去了？\"苹果说：\"因为我（iPhone）是iOS，不会水（Android）。\"",
+  "键盘上最伤感的键是什么？是 Backspace，因为它一直在删除过去，却什么也改变不了。",
+  "为什么大象不用电脑？因为它怕鼠标。",
+  "\"医生，我一吃东西就停不下来，怎么办？\"医生：\"你张开嘴让我看看。\"患者张开嘴。医生看了看说：\"没救了，吞口太大了。\"",
+  "有一天蚂蚁和大象吵架，蚂蚁说：\"你信不信我用腿把你绊倒？\"大象笑了。第二天，大象去医院缝针了。原来蚂蚁那天晚上叫来了它的三万个兄弟。",
+  "警察问目击者：\"嫌疑人长什么样？\"目击者：\"他长得很帅。\"警察：\"具体一点。\"目击者：\"帅得让人过目不忘。\"警察：\"……那你现在忘了吗？\"目击者：\"忘了。\"",
+  "青蛙去算命，算命的说：\"你最近会有一场大运。\"青蛙很高兴：\"什么大运？\"算命的看了看它说：\"被公主亲。\"青蛙更高兴了：\"然后就变成王子？\"算命的摇头：\"然后你变成了一盘干锅牛蛙。\"",
+  "为什么企鹅的肚子是白色的？因为它的手太短了，只能洗到肚子。",
+  "小明去面试，面试官问：\"你最大的缺点是什么？\"小明想了想说：\"太诚实。\"面试官说：\"我不觉得这是个缺点。\"小明说：\"我他妈不在乎你怎么想。\"",
+  "孙悟空问土地公：\"俺老孙的金箍棒在哪里？\"土地公说：\"大圣，您的金箍棒在东海龙王那里。\"孙悟空说：\"那你看看我耳朵里有什么？\"土地公一看：\"有一副 AirPods。\"",
+  "一个番茄走在路上，突然被一辆车撞了。司机下车看到番茄，惊恐地说：\"你还好吗？\"番茄躺在地上说：\"我...我觉得我变成番茄酱了。\"",
+  "去理发店，理发师问：\"想剪成什么样？\"我说：\"剪短一点就行，帅一点那种。\"理发师看了看我的头，沉默了一会说：\"兄弟，我只能帮你到短了，帅的事情你要自己想办法。\"",
+  "为什么程序员总喜欢穿格子衫？因为他们不想穿 Bug 的衣服，格子衫是唯一能通过 pattern matching 的。",
+  "上课的时候，老师问：\"小明，你知道为什么我们看不见风吗？\"小明说：\"因为它还没充会员。\"老师又问：\"那为什么我们能看见云？\"小明说：\"因为云是VIP。\"",
+  "我和朋友去吃火锅，朋友说：\"这家火锅微辣你能吃吗？\"我说能。结果吃了第一口，我说：\"这家微辣怎么这么辣？\"朋友说：\"对，每个人来都是这么问的。\"服务员路过说：\"微辣是我们的梦想，虽然我们做不到。\"",
+  "两条鱼在河里游，一条鱼看到另一条鱼头上有个灯泡，就问：\"你头上为什么有个灯泡？\"另一条鱼说：\"因为我是电鳗。\"第一条鱼说：\"那你为什么不开灯？\"电鳗说：\"因为我焦虑。\"",
+  "小明问爸爸：\"爸爸，什么是人工智能？\"爸爸说：\"就是机器会自己思考了。\"小明说：\"那AI会不会取代我的工作？\"爸爸说：\"放心，你得先有工作。\"",
+  "面试官：\"我们公司需要一个能独当一面的人。\"应聘者：\"没问题，我这个人最大的特点就是把所有事都自己扛。\"面试官：\"我们团队合作很重要。\"应聘者：\"没问题，我可以假装和别人合作。\"",
+  "\"服务员，这个菜里有头发。\"服务员看了看：\"是的，我们的厨师很有个人特色。\"我说：\"这太不卫生了。\"服务员说：\"放心，头发洗过了，刚才我看他在洗头。\"",
+  "乌龟和兔子赛跑，兔子跑到一半回头一看乌龟还没影，就睡着了。醒来发现乌龟已经在终点了。兔子很惊讶：\"你怎么这么快？\"乌龟说：\"我打车来的，你不会吗？\"",
+  "为什么蜗牛要背着壳？因为它还不起房贷。",
+  "小明问小红：\"你觉得我长得怎么样？\"小红说：\"你长得很有特色。\"小明：\"什么特色？\"小红：\"让人看一眼就记住了，而且是那种不想记却忘不掉的类型。\"",
+  "一个苹果在超市里站着，另一个苹果问：\"你怎么不坐下来？\"苹果说：\"我跟你说，我昨天被人放回去了，说是咬了一口发现有半条虫，我不能再被抓到了。\"",
+  "面试官：\"你有什么业余爱好？\"我：\"我喜欢看豆瓣电影评分。\"面试官：\"哦？那你最喜欢哪部电影？\"我：\"我不看电影，我只是享受那种别人花了两个小时的东西我花两秒钟就能评判的感觉。\"",
+  "\"老板，我要请假。\"老板：\"什么理由？\"我：\"我家猫今天心情不好，我想在家陪它。\"老板：\"这叫什么理由？\"我：\"那你觉得猫心情不好它会来上班吗？\"",
+  "为什么程序员分不清万圣节和圣诞节？因为 Oct 31 = Dec 25。",
+  "小明和同学去春游，老师说：\"今天我们观察大自然。\"小明看了半天说：\"老师，大自然什么时候更新？我都看了半小时了一个重复的都没有。\"",
+  "我去买奶茶，店员问：\"要几分糖？\"我说：\"全糖。\"店员说：\"好的，那您稍等，我们要先把甘蔗搬到榨汁机里。\"",
+  "为什么筷子总是成双成对？因为一根筷子夹不起菜，它连自己都夹不起。",
+  "有一天，\".exe\" 敲了敲 \".zip\" 的门：\"开门！\"\".zip\" 说：\"你先解压我。\"",
+  "孙悟空问唐僧：\"师父，你为什么总是那么淡定？\"唐僧说：\"因为我有紧箍咒。\"孙悟空说：\"那跟你淡定有什么关系？\"唐僧说：\"因为我不需要自己解决问题，我有咒语，我有徒弟，我还有后台。\"",
+  "面试官：\"你有五年工作经验吗？\"应聘者：\"我有两年工作经验，三年看别人工作的经验。\"",
+  "冬天的时候，暖气对空调说：\"你夏天不是挺狂的吗？\"空调说：\"我这不是给你放假呢，你好好干。\"",
+  "为什么镜子总是很诚恳？因为你哭它就哭，你笑它就笑，你丑它也不会骗你。",
+  "小明偷偷在阳台抽烟，突然听见妈妈上楼的脚步声，他赶紧把烟掐灭然后对着窗外大喊：\"这雾霾也太大了！\""
+];
+
+let currentJokes = [];
+let shown = new Set();   // 跟踪已展示过的笑话索引，避免池子耗尽前重复
+let mode = 'random';
+
+// 缓存收藏列表，避免同一次渲染中反复 parse localStorage
+let _favsCache = null;
+function favs() {
+  if (_favsCache === null) {
+    try { _favsCache = JSON.parse(localStorage.getItem('coldjokes_favs') || '[]'); }
+    catch(e) { _favsCache = []; }
+  }
+  return _favsCache;
+}
+
+function saveFavs(arr) {
+  _favsCache = arr;
+  localStorage.setItem('coldjokes_favs', JSON.stringify(arr));
+}
+
+function isFaved(text) {
+  return favs().includes(text);
+}
+
+function toggleFav(text) {
+  const f = favs();
+  const idx = f.indexOf(text);
+  if (idx > -1) { f.splice(idx, 1); }
+  else { f.push(text); }
+  saveFavs(f);
+  return idx === -1;
+}
+
+function nextBatch() {
+  const available = [];
+  for (let i = 0; i < pool.length; i++) {
+    if (!shown.has(i)) available.push(i);
+  }
+  if (available.length < 3) {
+    shown.clear();
+    for (let i = 0; i < pool.length; i++) available.push(i);
+  }
+  const batch = [];
+  for (let j = 0; j < 3; j++) {
+    const r = Math.floor(Math.random() * available.length);
+    const idx = available.splice(r, 1)[0];
+    shown.add(idx);
+    batch.push(pool[idx]);
+  }
+  return batch;
+}
+
+function render(jokes) {
+  currentJokes = jokes;
+  const card = document.getElementById('jokeCard');
+  card.innerHTML = '';
+  jokes.forEach((j, i) => {
+    const div = document.createElement('div');
+    div.className = 'joke-card';
+
+    const idx = document.createElement('span');
+    idx.className = 'joke-index';
+    idx.textContent = i + 1;
+
+    const text = document.createElement('span');
+    text.className = 'joke-text';
+    text.textContent = j;
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const favBtn = document.createElement('button');
+    favBtn.className = 'icon-btn fav-btn';
+    favBtn.setAttribute('aria-label', '收藏');
+    const updateFavBtn = () => {
+      if (isFaved(j)) {
+        favBtn.textContent = '♥';
+        favBtn.classList.add('faved');
+        favBtn.setAttribute('aria-label', '取消收藏');
+      } else {
+        favBtn.textContent = '♡';
+        favBtn.classList.remove('faved');
+        favBtn.setAttribute('aria-label', '收藏');
+      }
+    };
+    updateFavBtn();
+    favBtn.addEventListener('click', function() {
+      toggleFav(j);
+      updateFavBtn();
+      if (mode === 'fav') showFavs();
+      updateFavCount();
+    });
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'icon-btn';
+    copyBtn.textContent = '复制';
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(j);
+      copyBtn.textContent = '已复制';
+      copyBtn.classList.add('copied');
+      setTimeout(() => {
+        copyBtn.textContent = '复制';
+        copyBtn.classList.remove('copied');
+      }, 1500);
+    });
+
+    actions.appendChild(favBtn);
+    actions.appendChild(copyBtn);
+    div.appendChild(idx);
+    div.appendChild(text);
+    div.appendChild(actions);
+    card.appendChild(div);
+  });
+}
+
+function showFavs() {
+  const f = favs();
+  const list = document.getElementById('favList');
+  list.innerHTML = '';
+  if (f.length === 0) {
+    list.innerHTML = '<div class="fav-empty">还没有收藏任何冷笑话，去随机模式里点 &#9825; 吧</div>';
+    return;
+  }
+  f.forEach((text, i) => {
+    const div = document.createElement('div');
+    div.className = 'fav-item';
+
+    const num = document.createElement('span');
+    num.className = 'fav-num';
+    num.textContent = i + 1;
+
+    const t = document.createElement('span');
+    t.className = 'fav-text';
+    t.textContent = text;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'icon-btn';
+    copyBtn.textContent = '复制';
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(text);
+      copyBtn.textContent = '已复制';
+      copyBtn.classList.add('copied');
+      setTimeout(() => {
+        copyBtn.textContent = '复制';
+        copyBtn.classList.remove('copied');
+      }, 1500);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn del-btn';
+    delBtn.textContent = '删除';
+    delBtn.addEventListener('click', function() {
+      if (!confirm('确定要删除这条收藏吗？')) return;
+      const f2 = favs();
+      const idx = f2.indexOf(text);
+      if (idx > -1) { f2.splice(idx, 1); saveFavs(f2); }
+      showFavs();
+      updateFavCount();
+    });
+
+    div.appendChild(num);
+    div.appendChild(t);
+    div.appendChild(copyBtn);
+    div.appendChild(delBtn);
+    list.appendChild(div);
+  });
+}
+
+function updateFavCount() {
+  document.getElementById('favCount').textContent = favs().length;
+}
+
+function setMode(m) {
+  mode = m;
+  const url = new URL(window.location);
+  url.searchParams.set('tab', m);
+  window.history.replaceState({}, '', url);
+  document.getElementById('tabRandom').classList.toggle('active', m === 'random');
+  document.getElementById('tabFav').classList.toggle('active', m === 'fav');
+  document.getElementById('jokeCard').style.display = m === 'random' ? 'flex' : 'none';
+  document.getElementById('favPanel').style.display = m === 'fav' ? 'block' : 'none';
+  document.getElementById('mainBtn').style.display = m === 'random' ? 'inline-block' : 'none';
+  document.getElementById('debug').style.display = m === 'random' ? 'block' : 'none';
+  if (m === 'fav') showFavs();
+  // 仅在首次加载时拉取，避免切标签页丢笑话
+  if (m === 'random' && currentJokes.length === 0) refresh();
+}
+
+function refresh() {
+  render(nextBatch());
+}
+
+document.getElementById('tabRandom').addEventListener('click', () => setMode('random'));
+document.getElementById('tabFav').addEventListener('click', () => setMode('fav'));
+document.getElementById('mainBtn').addEventListener('click', () => { if (mode === 'random') refresh(); });
+
+updateFavCount();
+const initMode = new URL(window.location).searchParams.get('tab') || 'random';
+setMode(initMode);
+</script>
+</body>
+</html>
